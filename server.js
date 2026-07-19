@@ -52,11 +52,11 @@ app.get('/api/products', async (req, res) => {
     const { whereSql, params } = buildProductFilters(req);
 
     const sortMap = {
-      recent: 'p.last_checked_at DESC',
-      price_asc: 'p.current_price ASC',
-      price_desc: 'p.current_price DESC',
-      name: 'p.name ASC',
-      biggest_drop: 'price_change_pct ASC',
+      recent: 'last_checked_at DESC',
+      price_asc: 'current_price ASC',
+      price_desc: 'current_price DESC',
+      name: 'name ASC',
+      biggest_drop: 'price_change_pct ASC NULLS LAST',
     };
     const orderBy = sortMap[sort] || sortMap.recent;
 

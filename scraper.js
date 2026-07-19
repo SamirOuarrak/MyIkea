@@ -183,7 +183,19 @@ function parseProductPage(html, url) {
     allMatches.push({ price, match: match[0], index: match.index });
   }
 
-  const validPrices = allMatches.filter((m) => m.price >= 5 && m.price <= 100000);
+  // Exclut les prix accompagnés d'une mention de prix de référence/historique — IKEA affiche
+  // parfois un "prix de l'année précédente" (obligation réglementaire liée aux promotions)
+  // qui peut être plus élevé que le prix actuel, ce qui fausserait la sélection "plus grand prix".
+  const REFERENCE_PRICE_MARKERS = [
+    "année précédente", "an dernier", "ancien prix", "prix précédent",
+    "prix antérieur", "prix de référence", "prix barré", "avant promo",
+  ];
+  const isNearReferenceMarker = (idx) => {
+    const context = bodyText.slice(Math.max(0, idx - 80), idx + 80).toLowerCase();
+    return REFERENCE_PRICE_MARKERS.some((marker) => context.includes(marker));
+  };
+
+  const validPrices = allMatches.filter((m) => m.price >= 5 && m.price <= 100000 && !isNearReferenceMarker(m.index));
   if (validPrices.length > 0) {
     const best = validPrices.reduce((max, m) => (m.price > max.price ? m : max), validPrices[0]);
     const articleNumber = extractArticleNumberFallback($);
