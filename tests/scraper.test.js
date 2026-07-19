@@ -88,6 +88,21 @@ test('parseProductPage: prend le PLUS GRAND prix valide en fallback (évite le p
   assert.equal(result.method, 'regex-fallback-max-valid');
 });
 
+test('parseProductPage: exclut le "prix de l\'année précédente" même s\'il est plus élevé', () => {
+  // Cas réel : IKEA affiche parfois un prix de référence historique (obligation promo)
+  // plus élevé que le prix actuel — il ne faut PAS le choisir juste parce qu'il est plus grand.
+  const html = `
+    <html><body>
+      <h1>PÄRKLA Boîte de rangement</h1>
+      <div>Article number 801.467.63</div>
+      <div>Prix de l'année précédente: 449,00DH</div>
+      <div>349,00DH</div>
+    </body></html>
+  `;
+  const result = parseProductPage(html, 'https://example.com/p/test');
+  assert.equal(result.price, 349, 'doit ignorer 449 (prix de référence) et garder 349 (prix actuel)');
+});
+
 test('parseProductPage: renvoie failReason="no-price-pattern-found" si aucun prix DH trouvé', () => {
   const html = `<html><body><h1>Produit sans prix</h1><div>Article number 801.467.63</div></body></html>`;
   const result = parseProductPage(html, 'https://example.com/p/test');
