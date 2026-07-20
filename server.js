@@ -363,7 +363,7 @@ app.get('/api/debug/extract-price', async (req, res) => {
     const bodyText = $('body').text();
     const allPrices = [];
     let match;
-    const priceRegex = /(\d[\d\s]*,\d{2})\s*DH(\/[^\s]+)?/g;
+    const priceRegex = /(\d[\d\s]*(?:,\d{2})?)\s*DH(\/[^\s]+)?/g;
     while ((match = priceRegex.exec(bodyText)) !== null) {
       const price = parseFloat(match[1].replace(/\s/g, '').replace(',', '.'));
       allPrices.push({ price, match: match[0], index: match.index });

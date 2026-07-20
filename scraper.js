@@ -183,7 +183,9 @@ function parseProductPage(html, url) {
   const bodyText = $('body').text();
   const allMatches = [];
   let match;
-  const priceRegex = /(\d[\d\s]*,\d{2})\s*DH(\/[^\s]+)?/g;
+  // La partie décimale (",XX") est optionnelle : IKEA affiche parfois les prix ronds
+  // sans décimales (ex: "999DH" au lieu de "999,00DH")
+  const priceRegex = /(\d[\d\s]*(?:,\d{2})?)\s*DH(\/[^\s]+)?/g;
   while ((match = priceRegex.exec(bodyText)) !== null) {
     const price = parseFloat(match[1].replace(/\s/g, '').replace(',', '.'));
     allMatches.push({ price, match: match[0], index: match.index });
