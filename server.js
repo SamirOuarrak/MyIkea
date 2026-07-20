@@ -343,6 +343,21 @@ app.post('/api/scrape/refresh-now', async (req, res) => {
 
 app.get('/health', (req, res) => res.status(200).send('ok'));
 
+app.get('/api/debug/image-stats', async (req, res) => {
+  const total = (await db.queryOne(`SELECT COUNT(*) as c FROM products WHERE is_active=1`)).c;
+  const withImage = (await db.queryOne(`SELECT COUNT(*) as c FROM products WHERE is_active=1 AND image_url IS NOT NULL AND image_url != ''`)).c;
+  const sample = await db.query(`SELECT article_number, name, image_url FROM products WHERE is_active=1 AND image_url IS NOT NULL LIMIT 5`);
+  const sampleMissing = await db.query(`SELECT article_number, name, slug_url FROM products WHERE is_active=1 AND (image_url IS NULL OR image_url = '') LIMIT 5`);
+  res.json({
+    total: Number(total),
+    withImage: Number(withImage),
+    withoutImage: Number(total) - Number(withImage),
+    percentageWithImage: total > 0 ? Math.round((withImage / total) * 100) : 0,
+    sampleWithImage: sample,
+    sampleMissingImage: sampleMissing,
+  });
+});
+
 app.get('/api/debug/extract-price', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'url requis' });
@@ -370,6 +385,7 @@ app.get('/api/debug/extract-price', async (req, res) => {
     }
 
     let jsonLdPrice = null;
+    let jsonLdImageRaw = null;
     $('script[type="application/ld+json"]').each((_, el) => {
       if (jsonLdPrice) return;
       try {
@@ -379,9 +395,14 @@ app.get('/api/debug/extract-price', async (req, res) => {
         if (product && product.offers) {
           const offer = Array.isArray(product.offers) ? product.offers[0] : product.offers;
           if (offer && offer.price) jsonLdPrice = { price: parseFloat(offer.price), source: 'json-ld' };
+          jsonLdImageRaw = product.image || null;
         }
       } catch (_) {}
     });
+
+    let jsonLdImageNormalized = jsonLdImageRaw;
+    if (Array.isArray(jsonLdImageNormalized)) jsonLdImageNormalized = jsonLdImageNormalized[0];
+    if (jsonLdImageNormalized && typeof jsonLdImageNormalized === 'object') jsonLdImageNormalized = jsonLdImageNormalized.url || null;
 
     res.json({
       url,
@@ -389,6 +410,13 @@ app.get('/api/debug/extract-price', async (req, res) => {
       jsonLdPrice,
       allPricesFoundInPage: allPrices.slice(0, 10),
       totalPricesFound: allPrices.length,
+      imageCandidates: {
+        jsonLdImageRaw,
+        jsonLdImageNormalized,
+        ogImage: $('meta[property="og:image"]').attr('content') || null,
+        ogImageSecureUrl: $('meta[property="og:image:secure_url"]').attr('content') || null,
+        twitterImage: $('meta[name="twitter:image"]').attr('content') || null,
+      },
     });
   } catch (err) {
     res.json({ success: false, errorMessage: err.message });
