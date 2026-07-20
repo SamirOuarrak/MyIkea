@@ -133,6 +133,7 @@
     <span class="close-btn" onclick="closeModal()">&times;</span>
     <h2 id="modal-title">Produit</h2>
     <a id="modal-link" href="#" target="_blank" rel="noopener" style="font-size:13px; color:var(--ikea-blue); display:inline-block; margin-bottom:10px;">Voir sur IKEA.ma ↗</a>
+    <img id="modal-image" src="" alt="" style="width:100%; max-height:280px; object-fit:contain; border-radius:8px; background:#f5f5f5; margin-bottom:14px; display:none;" onerror="this.style.display='none'" />
     <div id="variant-selector" class="variant-selector"></div>
     <canvas id="price-chart" height="220"></canvas>
     <div class="watch-form">
@@ -299,7 +300,7 @@ function renderList(items) {
       ? '<img class="product-thumb" src="' + p.image_url + '" loading="lazy" onerror="this.style.display=\'none\'" />'
       : '<div class="product-thumb"></div>';
     return '<div class="product-card">'
-      + '<div class="clickable" onclick="openHistory(\'' + p.article_number + '\', \'' + safeName + '\', \'' + (p.slug_url||'') + '\', \'' + groupKey + '\')">'
+      + '<div class="clickable" onclick="openHistory(\'' + p.article_number + '\', \'' + safeName + '\', \'' + (p.slug_url||'') + '\', \'' + groupKey + '\', \'' + (p.image_url||'') + '\')">'
       + thumb
       + '<div><div class="product-name">' + catTag + p.name + isNew + variantTag + '</div>'
       + '<div class="product-meta">Réf. ' + p.article_number
@@ -331,7 +332,7 @@ async function loadWatchlist() {
         changeHtml = '<div class="product-meta" style="color:var(--muted);">Encore ' + remaining.toFixed(2) + ' DH (-' + remainingPct.toFixed(1) + '%)</div>';
       }
       return '<div class="product-card">'
-        + '<div class="clickable" onclick="openHistory(\'' + p.article_number + '\', \'' + (p.name||'').replace(/'/g,'') + '\', \'' + (p.slug_url||'') + '\')">'
+        + '<div class="clickable" onclick="openHistory(\'' + p.article_number + '\', \'' + (p.name||'').replace(/'/g,'') + '\', \'' + (p.slug_url||'') + '\', \'\', \'' + (p.image_url||'') + '\')">'
         + '<div><div class="product-name">' + p.name + tagHtml + '</div>'
         + '<div class="product-meta">Réf. ' + p.article_number + '</div>'
         + changeHtml + '</div></div>'
@@ -369,13 +370,18 @@ function switchTab(tab) {
   loadProducts(false);
 }
 
-async function openHistory(articleNumber, name, url, groupKey) {
+async function openHistory(articleNumber, name, url, groupKey, imageUrl) {
   currentArticleNumber = articleNumber;
   document.getElementById('modal-title').textContent = name;
   document.getElementById('target-price-input').value = '';
   const linkEl = document.getElementById('modal-link');
   if (url) { linkEl.href = url; linkEl.style.display = 'inline-block'; }
   else { linkEl.style.display = 'none'; }
+
+  const imgEl = document.getElementById('modal-image');
+  if (imageUrl) { imgEl.src = imageUrl; imgEl.alt = name; imgEl.style.display = 'block'; }
+  else { imgEl.style.display = 'none'; }
+
   document.getElementById('modal-overlay').style.display = 'flex';
 
   // Sélecteur de variantes (si applicable)
@@ -389,7 +395,7 @@ async function openHistory(articleNumber, name, url, groupKey) {
         selectorEl.innerHTML = variants.map(v => {
           const label = (v.name.replace(/'/g,'').split(',').slice(1).join(',').trim() || v.name).slice(0, 24);
           const isActive = v.article_number === articleNumber;
-          return '<span class="variant-chip' + (isActive ? ' active' : '') + '" onclick="switchVariant(\'' + v.article_number + '\', \'' + v.name.replace(/'/g,'') + '\', \'' + (v.slug_url||'') + '\')">'
+          return '<span class="variant-chip' + (isActive ? ' active' : '') + '" onclick="switchVariant(\'' + v.article_number + '\', \'' + v.name.replace(/'/g,'') + '\', \'' + (v.slug_url||'') + '\', \'' + (v.image_url||'') + '\')">'
             + label + ' — ' + v.current_price + ' DH</span>';
         }).join('');
       }
@@ -399,11 +405,14 @@ async function openHistory(articleNumber, name, url, groupKey) {
   await loadChart(articleNumber);
 }
 
-async function switchVariant(articleNumber, name, url) {
+async function switchVariant(articleNumber, name, url, imageUrl) {
   currentArticleNumber = articleNumber;
   document.getElementById('modal-title').textContent = name;
   const linkEl = document.getElementById('modal-link');
   if (url) { linkEl.href = url; linkEl.style.display = 'inline-block'; }
+  const imgEl = document.getElementById('modal-image');
+  if (imageUrl) { imgEl.src = imageUrl; imgEl.alt = name; imgEl.style.display = 'block'; }
+  else { imgEl.style.display = 'none'; }
   document.querySelectorAll('.variant-chip').forEach(c => c.classList.remove('active'));
   event.target.classList.add('active');
   await loadChart(articleNumber);
