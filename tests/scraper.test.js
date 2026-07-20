@@ -103,6 +103,35 @@ test('parseProductPage: exclut le "prix de l\'année précédente" même s\'il e
   assert.equal(result.price, 349, 'doit ignorer 449 (prix de référence) et garder 349 (prix actuel)');
 });
 
+test('parseProductPage: détecte les prix ronds sans décimales (ex: "999DH")', () => {
+  const html = `
+    <html><body>
+      <h1>BERGVEN Oreiller, haut</h1>
+      <div>Article number 605.715.82</div>
+      <div>999DH</div>
+    </body></html>
+  `;
+  const result = parseProductPage(html, 'https://example.com/p/test');
+  assert.equal(result.price, 999);
+});
+
+test('parseProductPage: ignore le prix d\'un article recommandé en bas de page ("Compléter avec")', () => {
+  // Cas réel : le prix du produit (999DH, sans décimales) était invisible pour l'ancienne
+  // regex, qui ne capturait alors que le prix d'un article cross-sell recommandé (99,90DH).
+  const html = `
+    <html><body>
+      <h1>BERGVEN Oreiller, haut</h1>
+      <div>Article number 605.715.82</div>
+      <div>999DH</div>
+      <section>Compléter avec</section>
+      <div>Taie d'oreiller, blanc</div>
+      <div>99,90DH</div>
+    </body></html>
+  `;
+  const result = parseProductPage(html, 'https://example.com/p/test');
+  assert.equal(result.price, 999, 'doit choisir 999 (le produit) et non 99.90 (la recommandation)');
+});
+
 test('parseProductPage: renvoie failReason="no-price-pattern-found" si aucun prix DH trouvé', () => {
   const html = `<html><body><h1>Produit sans prix</h1><div>Article number 801.467.63</div></body></html>`;
   const result = parseProductPage(html, 'https://example.com/p/test');
