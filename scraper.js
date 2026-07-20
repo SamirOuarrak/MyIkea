@@ -162,13 +162,19 @@ function parseProductPage(html, url) {
     const offer = Array.isArray(jsonLdData.offers) ? jsonLdData.offers[0] : jsonLdData.offers;
     const price = offer ? parseFloat(offer.price) : null;
     if (price && price >= 5 && price <= 100000) {
+      // jsonLdData.image peut être une chaîne, un tableau d'URLs, ou un objet ImageObject
+      // selon la page — on normalise vers une seule URL string exploitable par <img>.
+      let imageUrl = jsonLdData.image;
+      if (Array.isArray(imageUrl)) imageUrl = imageUrl[0];
+      if (imageUrl && typeof imageUrl === 'object') imageUrl = imageUrl.url || null;
+
       return {
         articleNumber: jsonLdData.sku || jsonLdData.mpn || extractArticleNumberFallback($),
         name: jsonLdData.name || $('h1').first().text().trim(),
         price,
         currency: (offer && offer.priceCurrency) || 'MAD',
         unitNote: null,
-        imageUrl: jsonLdData.image || null,
+        imageUrl: imageUrl || null,
         method: 'json-ld',
       };
     }
@@ -199,13 +205,19 @@ function parseProductPage(html, url) {
   if (validPrices.length > 0) {
     const best = validPrices.reduce((max, m) => (m.price > max.price ? m : max), validPrices[0]);
     const articleNumber = extractArticleNumberFallback($);
+    // Essaie plusieurs balises meta dans l'ordre, au cas où og:image serait absente
+    const imageUrl =
+      $('meta[property="og:image"]').attr('content') ||
+      $('meta[property="og:image:secure_url"]').attr('content') ||
+      $('meta[name="twitter:image"]').attr('content') ||
+      null;
     return {
       articleNumber,
       name: $('h1').first().text().trim(),
       price: best.price,
       currency: 'MAD',
       unitNote: best.match.includes('/') ? best.match.split('DH')[1].trim() : null,
-      imageUrl: $('meta[property="og:image"]').attr('content') || null,
+      imageUrl,
       method: 'regex-fallback-max-valid',
     };
   }
@@ -254,7 +266,7 @@ async function upsertProduct({ articleNumber, name, url, price, currency, unitNo
 
   const priceChanged = existing.current_price !== price;
   await db.run(
-    `UPDATE products SET name=?, slug_url=?, image_url=?, current_price=?, currency=?, unit_note=?, category=COALESCE(?, category), group_key=?, last_checked_at=NOW(), is_active=1
+    `UPDATE products SET name=?, slug_url=?, image_url=COALESCE(?, image_url), current_price=?, currency=?, unit_note=?, category=COALESCE(?, category), group_key=?, last_checked_at=NOW(), is_active=1
      WHERE article_number=?`,
     [name, url, imageUrl, price, currency, unitNote, categoryName, groupKey, articleNumber]
   );
